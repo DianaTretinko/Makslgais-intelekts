@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game: Player vs AI</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        #game-container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        .control-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        input[type="number"], select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        input[type="number"]:focus, select:focus {
+            border-color: #3498db;
+            outline: none;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            grid-column: span 2;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+        #sequence {
+            margin: 30px 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: center;
+        }
+        .number {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 60px;
+            height: 60px;
+            font-size: 24px;
+            font-weight: bold;
+            background-color: #f1f9fe;
+            border: 3px solid #3498db;
+            border-radius: 10px;
+            color: #2c3e50;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .number:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 8px rgba(52, 152, 219, 0.2);
+        }
+        .number.selected {
+            background-color: #3498db;
+            color: white;
+        }
+        .number.ai-move {
+            background-color: #e74c3c;
+            border-color: #c0392b;
+            color: white;
+        }
+        #status {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        #status p {
+            margin: 8px 0;
+            font-size: 16px;
+        }
+        #turn-status {
+            font-weight: bold;
+            color: #2c3e50;
+            font-size: 18px;
+        }
+        #score {
+            color: #27ae60;
+            font-weight: 600;
+        }
+        #winner {
+            font-weight: bold;
+            color: #3498db;
+            font-size: 18px;
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #e2f9ff;
+            border-radius: 6px;
+            text-align: center;
+        }
+        #ai-score-status {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+            background-color: #f1f5f9;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        #ai-score-status p {
+            font-weight: 600;
+            color: #2c3e50;
+            margin: 0;
+        }
+        #alphabeta-score {
+            color: #9b59b6;
+        }
+        #minimax-score {
+            color: #e67e22;
+        }
+        .error-message {
+            color: #e74c3c;
+            font-size: 14px;
+            margin-top: 5px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Game: Player vs AI</h1>
+    <div id="game-container">
+        <div class="controls">
+            <div class="control-group">
+                <label for="sequence-length">Sequence length (15-25):</label>
+                <input type="number" id="sequence-length" min="15" max="25" value="20">
+                <div id="length-error" class="error-message">Please enter a value between 15 and 25</div>
+            </div>
+            
+            <div class="control-group">
+                <label for="mode">Game mode:</label>
+                <select id="mode">
+                    <option value="player-vs-ai">Player vs AI</option>
+                    <option value="ai-vs-ai">AI vs AI</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="ai-algorithm">AI algorithm:</label>
+                <select id="ai-algorithm">
+                    <option value="minimax">Minimax</option>
+                    <option value="alphabeta">Alpha-Beta</option>
+                </select>
+            </div>
+
+            <button id="start-game">Start Game</button>
+        </div>
+
+        <div id="sequence"></div>
+
+        <div id="status">
+            <p id="turn-status">Turn: Player</p>
+            <p id="score">Score: Player: 0, AI: 0</p>
+            <p id="winner"></p>
+        </div>
+
+        <div id="ai-score-status">
+            <p id="alphabeta-score">Alpha-Beta: 0</p>
+            <p id="minimax-score">Minimax: 0</p>
+        </div>
+    </div>
+
+    <script>
+        const MIN = -Infinity;
+        const MAX = Infinity;
+        const AI_DEPTH = 3; 
+
+        let gameState = {
+            sequence: [],
+            playerScore: 0,
+            aiScore: 0,
+            alphabetaScore: 0,
+            minimaxScore: 0,
+            currentPlayer: 1,
+            isGameActive: false,
+            aiAlgorithm: 'minimax',
+            gameMode: 'player-vs-ai',
+            isAIPlaying: false
+        };
+
+        class GameTreeNode {
+            constructor(sequence, score, depth, isMaximizingPlayer, parent = null) {
+                this.sequence = sequence;
+                this.score = score;
+                this.depth = depth;
+                this.isMaximizingPlayer = isMaximizingPlayer;
+                this.parent = parent;
+                this.children = [];
+                this.bestChild = null;
+            }
+
+            addChild(childSequence, score) {
+                const child = new GameTreeNode(
+                    childSequence,
+                    score,
+                    this.depth + 1,
+                    !this.isMaximizingPlayer,
+                    this
+                );
+                this.children.push(child);
+                return child;
+            }
+
+            generatePossibleMoves() {
+                const moves = [];
+                for (let i = 0; i < this.sequence.length - 1; i++) {
+                    const newSeq = this.sequence.slice();
+                    newSeq[i] = (newSeq[i] + newSeq[i + 1]) % 6 || 6;
+                    newSeq.splice(i + 1, 1);
+                    moves.push({
+                        sequence: newSeq,
+                        index: i,
+                        scoreChange: 1
+                    });
+                }
+                
+                if (this.sequence.length > 1) {
+                    const newSeq = this.sequence.slice();
+                    newSeq.pop();
+                    moves.push({
+                        sequence: newSeq,
+                        index: this.sequence.length - 1,
+                        scoreChange: -1
+                    });
+                }
+                
+                return moves;
+            }
+        }
+
+        function heuristic(seq) {
+            return seq.reduce((a, b) => a + b, 0) / seq.length;
+        }
+
+        function alphaBeta(node, depth, alpha, beta, maximizingPlayer) {
+            if (node.sequence.length === 1 || depth === 0) {
+                node.score = heuristic(node.sequence);
+                return node.score;
+            }
+
+            const moves = node.generatePossibleMoves();
+            
+            if (maximizingPlayer) {
+                let maxEval = MIN;
+                for (const move of moves) {
+                    const child = node.addChild(move.sequence);
+                    const eval = alphaBeta(child, depth - 1, alpha, beta, false);
+                    if (eval > maxEval) {
+                        maxEval = eval;
+                        node.bestChild = child;
+                        child.scoreChange = move.scoreChange;
+                    }
+                    alpha = Math.max(alpha, eval);
+                    if (beta <= alpha) break;
+                }
+                return maxEval;
+            } else {
+                let minEval = MAX;
+                for (const move of moves) {
+                    const child = node.addChild(move.sequence);
+                    const eval = alphaBeta(child, depth - 1, alpha, beta, true);
+                    if (eval < minEval) {
+                        minEval = eval;
+                        node.bestChild = child;
+                        child.scoreChange = move.scoreChange;
+                    }
+                    beta = Math.min(beta, eval);
+                    if (beta <= alpha) break;
+                }
+                return minEval;
+            }
+        }
+
+        function minimax(node, depth, maximizingPlayer) {
+            if (node.sequence.length === 1 || depth === 0) {
+                node.score = heuristic(node.sequence);
+                return node.score;
+            }
+
+            const moves = node.generatePossibleMoves();
+            
+            if (maximizingPlayer) {
+                let maxEval = MIN;
+                for (const move of moves) {
+                    const child = node.addChild(move.sequence);
+                    const eval = minimax(child, depth - 1, false);
+                    if (eval > maxEval) {
+                        maxEval = eval;
+                        node.bestChild = child;
+                        child.scoreChange = move.scoreChange;
+                    }
+                }
+                return maxEval;
+            } else {
+                let minEval = MAX;
+                for (const move of moves) {
+                    const child = node.addChild(move.sequence);
+                    const eval = minimax(child, depth - 1, true);
+                    if (eval < minEval) {
+                        minEval = eval;
+                        node.bestChild = child;
+                        child.scoreChange = move.scoreChange;
+                    }
+                }
+                return minEval;
+            }
+        }
+
+        function generateSequence(length) {
+            gameState.sequence = [];
+            for (let i = 0; i < length; i++) {
+                gameState.sequence.push(Math.floor(Math.random() * 6) + 1);
+            }
+            renderSequence();
+        }
+
+        function renderSequence() {
+            const sequenceDiv = document.getElementById('sequence');
+            sequenceDiv.innerHTML = '';
+            
+            gameState.sequence.forEach((num, index) => {
+                const numberDiv = document.createElement('div');
+                numberDiv.classList.add('number');
+                numberDiv.textContent = num;
+                numberDiv.setAttribute('data-index', index);
+                
+                if (gameState.currentPlayer === 1 && gameState.gameMode !== 'ai-vs-ai') {
+                    numberDiv.onclick = () => handlePlayerMove(index);
+                }
+                
+                sequenceDiv.appendChild(numberDiv);
+            });
+        }
+
+        function handlePlayerMove(index) {
+            if (gameState.currentPlayer !== 1 || gameState.gameMode === 'ai-vs-ai' || gameState.isAIPlaying) return;
+
+            const numbers = document.querySelectorAll('.number');
+            numbers.forEach(num => num.classList.remove('selected', 'ai-move'));
+            numbers[index].classList.add('selected');
+
+            setTimeout(() => {
+                let newSeq = gameState.sequence.slice();
+                if (index < gameState.sequence.length - 1) {
+                    newSeq[index] = (newSeq[index] + newSeq[index + 1]) % 6 || 6;
+                    newSeq.splice(index + 1, 1);
+                    gameState.playerScore += 1;
+                } else {
+                    newSeq.splice(index, 1);
+                    gameState.playerScore -= 1;
+                }
+                
+                gameState.sequence = newSeq;
+                gameState.currentPlayer = 2;
+                renderSequence();
+                updateStatus();
+                
+                if (gameState.sequence.length > 1) {
+                    setTimeout(aiMove, 500);
+                } else {
+                    endGame();
+                }
+            }, 300);
+        }
+
+        function aiMove() {
+            if (gameState.sequence.length === 1) {
+                endGame();
+                return;
+            }
+
+            gameState.isAIPlaying = true;
+            document.getElementById('start-game').disabled = true;
+
+            const root = new GameTreeNode(gameState.sequence, 0, 0, false);
+            let bestIndex = -1;
+            let scoreChange = 0;
+
+            if (gameState.aiAlgorithm === 'minimax') {
+                minimax(root, AI_DEPTH, false);
+                bestIndex = findBestMoveIndex(root);
+            } else {
+                alphaBeta(root, AI_DEPTH, MIN, MAX, false);
+                bestIndex = findBestMoveIndex(root);
+            }
+
+            if (root.bestChild) {
+                scoreChange = root.bestChild.scoreChange;
+            }
+
+            if (bestIndex !== -1) {
+                const numbers = document.querySelectorAll('.number');
+                if (numbers[bestIndex]) {
+                    numbers[bestIndex].classList.add('ai-move');
+                    
+                    setTimeout(() => {
+                        let newSeq = gameState.sequence.slice();
+                        if (bestIndex < gameState.sequence.length - 1) {
+                            newSeq[bestIndex] = (newSeq[bestIndex] + newSeq[bestIndex + 1]) % 6 || 6;
+                            newSeq.splice(bestIndex + 1, 1);
+                            if (gameState.gameMode === 'ai-vs-ai') {
+                                if (gameState.aiAlgorithm === 'alphabeta') {
+                                    gameState.alphabetaScore += scoreChange;
+                                } else {
+                                    gameState.minimaxScore += scoreChange;
+                                }
+                            }
+                            gameState.aiScore += scoreChange;
+                        } else {
+                            newSeq.splice(bestIndex, 1);
+                            if (gameState.gameMode === 'ai-vs-ai') {
+                                if (gameState.aiAlgorithm === 'alphabeta') {
+                                    gameState.alphabetaScore += scoreChange;
+                                } else {
+                                    gameState.minimaxScore += scoreChange;
+                                }
+                            }
+                            gameState.aiScore += scoreChange;
+                        }
+                        
+                        gameState.sequence = newSeq;
+                        gameState.currentPlayer = 1;
+                        renderSequence();
+                        updateStatus();
+                        
+                        if (gameState.sequence.length > 1 && gameState.gameMode === 'ai-vs-ai') {
+                            gameState.aiAlgorithm = gameState.aiAlgorithm === 'alphabeta' ? 'minimax' : 'alphabeta';
+                            setTimeout(aiMove, 1000);
+                        } else if (gameState.sequence.length === 1) {
+                            endGame();
+                        }
+                        
+                        if (gameState.gameMode !== 'ai-vs-ai' || gameState.sequence.length === 1) {
+                            gameState.isAIPlaying = false;
+                            document.getElementById('start-game').disabled = false;
+                        }
+                    }, 800);
+                }
+            }
+        }
+
+        function findBestMoveIndex(root) {
+            if (!root.bestChild) return -1;
+            
+            const originalSeq = root.sequence;
+            const newSeq = root.bestChild.sequence;
+
+            for (let i = 0; i < originalSeq.length; i++) {
+                if (i < newSeq.length && originalSeq[i] !== newSeq[i]) {
+                    return i;
+                }
+            }
+            
+            return originalSeq.length - 1;
+        }
+
+        function updateStatus() {
+            document.getElementById('turn-status').textContent = 
+                gameState.currentPlayer === 1 ? 'Turn: Player' : 'Turn: AI';
+                
+            document.getElementById('score').textContent = 
+                `Score: Player: ${gameState.playerScore}, AI: ${gameState.aiScore}`;
+                
+            document.getElementById('alphabeta-score').textContent = 
+                `Alpha-Beta: ${gameState.alphabetaScore}`;
+                
+            document.getElementById('minimax-score').textContent = 
+                `Minimax: ${gameState.minimaxScore}`;
+        }
+        
+        function endGame() {
+            gameState.isGameActive = false;
+            gameState.isAIPlaying = false;
+            document.getElementById('start-game').disabled = false;
+            
+            let winnerText = '';
+            
+            if (gameState.gameMode === 'ai-vs-ai') {
+                if (gameState.alphabetaScore > gameState.minimaxScore) {
+                    winnerText = `Game over! Alpha-Beta wins (${gameState.alphabetaScore} vs ${gameState.minimaxScore})`;
+                } else if (gameState.minimaxScore > gameState.alphabetaScore) {
+                    winnerText = `Game over! Minimax wins (${gameState.minimaxScore} vs ${gameState.alphabetaScore})`;
+                } else {
+                    winnerText = `Game over! Draw (${gameState.alphabetaScore} : ${gameState.minimaxScore})`;
+                }
+            } else {
+                if (gameState.playerScore > gameState.aiScore) {
+                    winnerText = `Game over! Player wins (${gameState.playerScore} vs ${gameState.aiScore})`;
+                } else if (gameState.aiScore > gameState.playerScore) {
+                    winnerText = `Game over! AI wins (${gameState.aiScore} vs ${gameState.playerScore})`;
+                } else {
+                    winnerText = `Game over! Draw (${gameState.playerScore} : ${gameState.aiScore})`;
+                }
+            }
+            
+            document.getElementById('winner').textContent = winnerText;
+        }
+
+        function validateSequenceLength() {
+            const lengthInput = document.getElementById('sequence-length');
+            const errorMessage = document.getElementById('length-error');
+            const length = parseInt(lengthInput.value);
+            
+            if (isNaN(length) || length < 15 || length > 25) {
+                errorMessage.style.display = 'block';
+                lengthInput.style.borderColor = '#e74c3c';
+                return false;
+            } else {
+                errorMessage.style.display = 'none';
+                lengthInput.style.borderColor = '#e0e0e0';
+                return true;
+            }
+        }
+
+        document.getElementById('sequence-length').addEventListener('change', function() {
+            validateSequenceLength();
+        });
+        document.getElementById('sequence-length').addEventListener('input', function() {
+            const lengthInput = this;
+            let value = parseInt(lengthInput.value);
+            
+            if (isNaN(value)) {
+                return;
+            }
+            
+            if (value < 15) {
+                lengthInput.value = 15;
+            } else if (value > 25) {
+                lengthInput.value = 25;
+            }
+            
+            validateSequenceLength();
+        });
+
+        document.getElementById('start-game').addEventListener('click', function() {
+            if (gameState.isAIPlaying) return;
+            
+            if (!validateSequenceLength()) {
+                return;
+            }
+            
+            const length = parseInt(document.getElementById('sequence-length').value);
+            gameState.gameMode = document.getElementById('mode').value;
+            gameState.aiAlgorithm = document.getElementById('ai-algorithm').value;
+            
+            generateSequence(length);
+            gameState.isGameActive = true;
+            gameState.currentPlayer = gameState.gameMode === 'ai-vs-ai' ? 2 : 1;
+            gameState.playerScore = 0;
+            gameState.aiScore = 0;
+            gameState.alphabetaScore = 0;
+            gameState.minimaxScore = 0;
+            
+            document.getElementById('winner').textContent = '';
+            updateStatus();
+            
+            if (gameState.gameMode === 'ai-vs-ai') {
+                gameState.isAIPlaying = true;
+                document.getElementById('start-game').disabled = true;
+                setTimeout(aiMove, 500);
+            }
+        });
+    </script>
+</body>
+</html>
